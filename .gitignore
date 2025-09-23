@@ -1,0 +1,70 @@
+# Python compiled files
+__pycache__/          # Python bytecode cache directory
+*.py[cod]             # .pyc, .pyo, .pyd compiled files
+*$py.class            # Additional Python compiled files
+.Python               # Python environment file
+build/                # Build temporary directory
+develop-eggs/         # Development eggs
+dist/                 # Distribution directory
+downloads/            # Downloads directory
+eggs/                 # Eggs directory
+.eggs/                # Eggs cache
+lib/                  # Library directory
+lib64/                # 64-bit library directory
+parts/                # Parts directory
+sdist/                # Source distribution
+var/                  # Variable data
+wheels/               # Wheel files
+*.egg-info/           # Package info directory
+.installed.cfg        # Installation config
+*.egg                 # Egg files
+
+# Virtual environments (Important!)
+venv/                 # Virtual environment directory
+env/                  # Environment directory
+ENV/                  # Environment directory (uppercase)
+.venv/                # Hidden virtual environment directory
+.env                  # Environment variables file (may contain passwords!)
+
+# IDE and Editor configuration files
+.vscode/              # VSCode configuration
+.idea/                # PyCharm/IntelliJ configuration
+*.swp                 # Vim swap files
+*.swo                 # Vim swap files
+*~                    # Backup files
+
+# Jupyter Notebook
+.ipynb_checkpoints    # Jupyter checkpoint files
+
+# Operating system files
+.DS_Store             # macOS system file
+Thumbs.db             # Windows thumbnail cache
+Desktop.ini           # Windows desktop config
+
+# Temporary files and outputs
+*.tmp                 # Temporary files
+*.temp                # Temporary files
+*.log                 # Log files
+logs/                 # Log directory
+
+# Application specific
+gradio_cached_examples/  # Gradio cache directory
+flagged/              # Gradio flagged files
+outputs/              # Output files directory
+test_results/         # Test results directory
+*.png                 # Generated image files (optional)
+*.jpg                 # Generated image files (optional)
+
+# Testing
+.coverage             # Coverage reports
+htmlcov/              # Coverage HTML reports
+.tox/                 # Tox testing
+.pytest_cache/        # Pytest cache
+
+# Documentation builds
+docs/_build/          # Sphinx documentation builds
+
+# Package manager files
+.pip                  # pip
+pip-log.txt           # pip log
+pip-delete-this-directory.txt  # pip temp
