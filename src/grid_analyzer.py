@@ -5,7 +5,7 @@ import cv2
 class GridAnalyzer:
     """
     Improved grid analysis module for the mosaic generator.
-    Better handles geometric patterns and uniform regions.
+    Better handles geometric patterns and uniform regions with improved color classification.
     """
     
     def __init__(self, base_grid_size=32):
@@ -387,7 +387,7 @@ class GridAnalyzer:
     
     def analyze_cell_color(self, cell):
         """
-        Analyze the dominant color of a grid cell.
+        Improved cell color analysis with better dominant color detection.
         """
         if cell.size == 0:
             return np.array([128, 128, 128])
@@ -399,21 +399,29 @@ class GridAnalyzer:
             return np.array([128, 128, 128])
         
         try:
-            kmeans = KMeans(n_clusters=1, random_state=42, n_init=10)
+            # Use more clusters for better color analysis
+            n_clusters = min(5, max(1, len(valid_pixels) // 100))
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
             kmeans.fit(valid_pixels)
-            dominant_color = kmeans.cluster_centers_[0]
+            
+            # Select the cluster with most pixels as dominant color
+            labels = kmeans.labels_
+            cluster_sizes = np.bincount(labels)
+            dominant_cluster = np.argmax(cluster_sizes)
+            dominant_color = kmeans.cluster_centers_[dominant_cluster]
+            
             dominant_color = np.clip(dominant_color, 0, 255)
             return dominant_color.astype(int)
         except Exception:
             return np.mean(valid_pixels, axis=0).astype(int)
     
-    def generate_dynamic_palette(self, image, n_colors=16):
+    def generate_dynamic_palette(self, image, n_colors=24):
         """
-        Generate a dynamic color palette specific to the input image.
+        Generate a more comprehensive dynamic color palette with increased color count.
         
         Args:
             image (numpy.ndarray): Input image
-            n_colors (int): Number of colors in the palette
+            n_colors (int): Number of colors in the palette (increased from 16 to 24)
             
         Returns:
             dict: Dictionary mapping color names to RGB values
@@ -513,7 +521,7 @@ class GridAnalyzer:
     
     def _get_fallback_palette(self):
         """
-        Fallback palette when dynamic generation fails.
+        Enhanced fallback palette with more colors for better classification.
         """
         return {
             'white': (248, 248, 255),
@@ -521,22 +529,30 @@ class GridAnalyzer:
             'medium_gray': (128, 128, 128),
             'dark_gray': (64, 64, 64),
             'black': (25, 25, 25),
-            'red': (220, 20, 20),
-            'green': (34, 139, 34),
-            'blue': (30, 100, 200),
-            'yellow': (255, 215, 0),
-            'orange': (255, 140, 0),
+            'bright_red': (220, 20, 20),
+            'dark_red': (139, 0, 0),
+            'bright_green': (0, 255, 0),
+            'forest_green': (34, 139, 34),
+            'dark_green': (0, 100, 0),
+            'bright_blue': (30, 144, 255),
+            'navy_blue': (0, 0, 128),
+            'sky_blue': (135, 206, 235),
+            'yellow': (255, 255, 0),
+            'gold': (255, 215, 0),
+            'orange': (255, 165, 0),
             'purple': (138, 43, 226),
+            'violet': (238, 130, 238),
             'brown': (139, 69, 19),
+            'tan': (210, 180, 140),
             'pink': (255, 182, 193),
-            'cyan': (0, 206, 209),
+            'cyan': (0, 255, 255),
             'teal': (0, 128, 128),
             'beige': (245, 245, 220)
         }
     
     def classify_color_category(self, dominant_color, dynamic_palette=None):
         """
-        Enhanced color classification using dynamic or static palette.
+        Enhanced color classification using LAB color space for better accuracy.
         
         Args:
             dominant_color (numpy.ndarray): RGB color values
@@ -551,27 +567,57 @@ class GridAnalyzer:
         else:
             color_categories = dynamic_palette
         
-        # Perceptually weighted distance calculation
-        weights = np.array([0.3, 0.59, 0.11])  # RGB weights for human perception
-        
-        min_distance = float('inf')
-        closest_category = list(color_categories.keys())[0]
-        closest_color = list(color_categories.values())[0]
-        
-        for category, color in color_categories.items():
-            diff = dominant_color - np.array(color)
-            distance = np.sqrt(np.sum((diff * weights) ** 2))
+        try:
+            # Convert dominant color to LAB color space for perceptually accurate matching
+            dominant_lab = cv2.cvtColor(
+                np.uint8([[dominant_color]]), 
+                cv2.COLOR_RGB2LAB
+            )[0][0].astype(float)
             
-            if distance < min_distance:
-                min_distance = distance
-                closest_category = category
-                closest_color = color
+            min_distance = float('inf')
+            closest_category = list(color_categories.keys())[0]
+            closest_color = list(color_categories.values())[0]
+            
+            for category, color in color_categories.items():
+                # Convert palette color to LAB
+                color_lab = cv2.cvtColor(
+                    np.uint8([[color]]), 
+                    cv2.COLOR_RGB2LAB
+                )[0][0].astype(float)
                 
-        return closest_category, closest_color
+                # Calculate Euclidean distance in LAB space
+                distance = np.linalg.norm(dominant_lab - color_lab)
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_category = category
+                    closest_color = color
+            
+            return closest_category, closest_color
+            
+        except Exception as e:
+            print(f"Warning: LAB color space conversion failed: {e}")
+            # Fallback to RGB-based matching with perceptual weights
+            weights = np.array([0.3, 0.59, 0.11])  # RGB weights for human perception
+            
+            min_distance = float('inf')
+            closest_category = list(color_categories.keys())[0]
+            closest_color = list(color_categories.values())[0]
+            
+            for category, color in color_categories.items():
+                diff = dominant_color - np.array(color)
+                distance = np.sqrt(np.sum((diff * weights) ** 2))
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_category = category
+                    closest_color = color
+                    
+            return closest_category, closest_color
     
     def analyze_image_grid(self, image, complexity_threshold=50):
         """
-        Complete grid analysis pipeline with dynamic color palette generation.
+        Complete grid analysis pipeline with improved dynamic color palette generation.
         
         Args:
             image (numpy.ndarray): Input image as RGB array
@@ -583,27 +629,31 @@ class GridAnalyzer:
                 - color_analysis: List of (dominant_color, category, category_color) for each cell
                 - dynamic_palette: Generated color palette for this image
         """
-        # Step 1: Generate dynamic color palette for this specific image
-        print("Generating dynamic color palette...")
-        dynamic_palette = self.generate_dynamic_palette(image, n_colors=16)
+        # Step 1: Generate enhanced dynamic color palette with more colors
+        print("Generating enhanced dynamic color palette...")
+        dynamic_palette = self.generate_dynamic_palette(image, n_colors=24)
         print(f"Generated palette with {len(dynamic_palette)} colors")
         
         # Step 2: Create adaptive grid
         grid_info = self.create_adaptive_grid(image, complexity_threshold)
         
-        # Step 3: Analyze color for each cell using dynamic palette
+        # Step 3: Analyze color for each cell using enhanced methods
         color_analysis = []
         
-        for y1, y2, x1, x2 in grid_info:
+        for i, (y1, y2, x1, x2) in enumerate(grid_info):
             cell = image[y1:y2, x1:x2]
             
-            # Analyze dominant color
+            # Analyze dominant color with improved method
             dominant_color = self.analyze_cell_color(cell)
             
-            # Classify into category using dynamic palette
+            # Classify into category using LAB color space
             category, category_color = self.classify_color_category(dominant_color, dynamic_palette)
             
             color_analysis.append((dominant_color, category, category_color))
+            
+            # Debug output for first few cells
+            if i < 3:
+                print(f"Cell {i}: RGB{tuple(dominant_color)} -> {category} RGB{category_color}")
         
         return grid_info, color_analysis, dynamic_palette
     
