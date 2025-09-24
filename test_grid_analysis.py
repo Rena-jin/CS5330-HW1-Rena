@@ -12,14 +12,14 @@ from grid_analyzer import GridAnalyzer
 def test_all_example_images():
     """
     Test grid analysis with all three example images to evaluate algorithm performance.
-    Now includes dynamic color palette generation.
+    PURE STEP 2 TESTING - No mosaic generation, only grid analysis and color classification.
     """
-    print("Testing Grid Analysis with Dynamic Color Palettes on All Example Images...")
-    print("="*70)
+    print("Testing Step 2: Grid Analysis and Color Classification...")
+    print("="*65)
     
     # Initialize modules
     preprocessor = ImagePreprocessor(target_size=(512, 512))
-    analyzer = GridAnalyzer(base_grid_size=32)  # Use 32x32 as standard
+    analyzer = GridAnalyzer(base_grid_size=32)
     
     # Get all image files
     image_files = []
@@ -44,12 +44,12 @@ def test_all_example_images():
         print(f"\n{i+1}. Testing {image_name}...")
         
         try:
-            # Preprocess image
+            # Step 1 result: Preprocess image
             processed_image = preprocessor.preprocess_image(
                 image_path, apply_quantization=True, n_colors=8
             )
             
-            # Analyze grid with dynamic palette (updated to handle 3 return values)
+            # STEP 2 FUNCTIONALITY: Grid analysis and color classification
             grid_info, color_analysis, dynamic_palette = analyzer.analyze_image_grid(
                 processed_image, complexity_threshold
             )
@@ -57,7 +57,7 @@ def test_all_example_images():
             # Get statistics
             stats = analyzer.get_grid_statistics(grid_info, color_analysis)
             
-            # Store results (now includes dynamic_palette)
+            # Store results for Step 2 analysis only
             result = {
                 'name': image_name,
                 'path': image_path,
@@ -69,19 +69,19 @@ def test_all_example_images():
             }
             results.append(result)
             
-            # Print analysis (enhanced with palette info)
-            print(f"   Total cells: {stats['total_cells']}")
-            print(f"   Large cells: {stats['large_cells']} ({stats['large_cells']/stats['total_cells']:.1%})")
-            print(f"   Small cells: {stats['subdivided_cells']} ({stats['subdivision_ratio']:.1%})")
-            print(f"   Dynamic palette: {len(dynamic_palette)} colors")
-            print(f"   Used colors: {stats['unique_colors']}")
-            print(f"   Color efficiency: {stats['unique_colors']/len(dynamic_palette):.1%}")
-            print(f"   Avg cell size: {stats['avg_cell_size']:.0f} pixels")
+            # Print Step 2 analysis results
+            print(f"   Image type detected: {analyzer._detect_image_type(processed_image)}")
+            print(f"   Grid division: {stats['total_cells']} total cells")
+            print(f"   Large cells: {stats['large_cells']} | Small cells: {stats['subdivided_cells']}")
+            print(f"   Subdivision ratio: {stats['subdivision_ratio']:.1%}")
+            print(f"   Dynamic palette generated: {len(dynamic_palette)} colors")
+            print(f"   Color categories identified: {stats['unique_colors']}")
+            print(f"   Average cell size: {stats['avg_cell_size']:.0f} pixels")
             
-            # Show sample palette colors
-            palette_preview = list(dynamic_palette.items())[:5]
-            color_types = [name.split('_')[0] for name, color in palette_preview]
-            print(f"   Sample colors: {', '.join(color_types)}")
+            # Show color classification results
+            categories = [analysis[1] for analysis in color_analysis]
+            unique_categories = list(set(categories))
+            print(f"   Color categories: {', '.join(unique_categories[:5])}")
             
         except Exception as e:
             print(f"   Error processing {image_path}: {e}")
@@ -91,94 +91,62 @@ def test_all_example_images():
         print("No images processed successfully!")
         return False
     
-    # Create comprehensive visualization (enhanced with palette)
-    create_comprehensive_visualization(results)
+    # Create Step 2 specific visualization (NO MOSAIC)
+    create_step2_visualization(results)
     
-    # Analyze performance across image types (enhanced analysis)
-    analyze_algorithm_performance(results)
+    # Analyze Step 2 performance
+    analyze_step2_performance(results)
     
     return True
 
-def create_comprehensive_visualization(results):
+def create_step2_visualization(results):
     """
-    Create a comprehensive comparison of all three images with dynamic palettes.
-    Now includes 5 columns: original, grid, palette, colors, distribution.
+    Create visualization for STEP 2 ONLY: Grid division, color analysis, and palette generation.
+    NO MOSAIC GENERATION - that's Step 3. Fixed layout to prevent overflow.
     """
     num_images = len(results)
-    fig, axes = plt.subplots(num_images, 5, figsize=(25, 5*num_images))
+    fig, axes = plt.subplots(num_images, 4, figsize=(16, 4*num_images))  # Reduced figure size
     
     if num_images == 1:
         axes = axes.reshape(1, -1)
     
     for i, result in enumerate(results):
-        # 1. Original processed image
+        # 1. Original processed image (from Step 1)
         axes[i, 0].imshow(result['processed_image'])
-        axes[i, 0].set_title(f"{result['name'].title()}\nProcessed Image")
+        axes[i, 0].set_title(f"{result['name'].title()}\nProcessed Image\n(Step 1 Result)")
         axes[i, 0].axis('off')
         
-        # 2. Grid visualization with size coding
+        # 2. Grid division visualization (Step 2 Part 1)
         axes[i, 1].imshow(result['processed_image'])
         
-        # Separate large and small cells
-        large_cells = []
-        small_cells = []
-        base_size_squared = 32 ** 2
-        
+        # Draw grid lines to show division
         for y1, y2, x1, x2 in result['grid_info']:
-            cell_size = (x2-x1) * (y2-y1)
-            if cell_size >= base_size_squared:
-                large_cells.append((y1, y2, x1, x2))
-            else:
-                small_cells.append((y1, y2, x1, x2))
-        
-        # Draw large cells in yellow
-        for y1, y2, x1, x2 in large_cells:
             rect = Rectangle((x1, y1), x2-x1, y2-y1, 
-                           linewidth=2, edgecolor='yellow', facecolor='none', alpha=0.9)
-            axes[i, 1].add_patch(rect)
-        
-        # Draw small cells in red
-        for y1, y2, x1, x2 in small_cells:
-            rect = Rectangle((x1, y1), x2-x1, y2-y1, 
-                           linewidth=1, edgecolor='red', facecolor='none', alpha=0.7)
+                           linewidth=1, edgecolor='white', facecolor='none', alpha=0.8)
             axes[i, 1].add_patch(rect)
         
         stats = result['stats']
-        axes[i, 1].set_title(f"Grid Analysis\nCells: {stats['total_cells']} | Sub: {stats['subdivision_ratio']:.0%}")
+        axes[i, 1].set_title(f"Grid Division\n{stats['total_cells']} cells\n(Step 2: Grid Analysis)")
         axes[i, 1].axis('off')
         
-        # 3. Dynamic palette preview
+        # 3. Dynamic color palette (Step 2 Part 2)
         palette_img = create_palette_preview(result['dynamic_palette'])
         axes[i, 2].imshow(palette_img)
-        axes[i, 2].set_title(f"Dynamic Palette\n{len(result['dynamic_palette'])} colors")
+        axes[i, 2].set_title(f"Dynamic Palette\n{len(result['dynamic_palette'])} colors\n(Step 2: Color Analysis)")
         axes[i, 2].axis('off')
         
-        # 4. Color categories
-        color_result = create_color_category_image(
-            result['processed_image'], result['grid_info'], result['color_analysis']
-        )
-        axes[i, 3].imshow(color_result)
-        axes[i, 3].set_title(f"Color Categories\n{stats['unique_colors']} used colors")
+        # 4. Color classification visualization (Step 2 Result) - NO CONCATENATION
+        classification_viz = create_color_classification_visualization(result)
+        axes[i, 3].imshow(classification_viz)
+        axes[i, 3].set_title(f"Color Classification\n{stats['unique_colors']} categories\n(Step 2: Classification)")
         axes[i, 3].axis('off')
-        
-        # 5. Cell size distribution
-        cell_sizes = []
-        for y1, y2, x1, x2 in result['grid_info']:
-            cell_sizes.append((x2-x1) * (y2-y1))
-        
-        axes[i, 4].hist(cell_sizes, bins=20, alpha=0.7, color='skyblue', edgecolor='black')
-        axes[i, 4].axvline(base_size_squared, color='red', linestyle='--', label=f'Base size ({base_size_squared})')
-        axes[i, 4].set_title(f"Cell Size Distribution")
-        axes[i, 4].set_xlabel("Cell Size (pixels)")
-        axes[i, 4].set_ylabel("Count")
-        axes[i, 4].legend()
-        axes[i, 4].grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig('comprehensive_grid_analysis.png', dpi=150, bbox_inches='tight')
+    plt.subplots_adjust(bottom=0.05, top=0.95)  # Adjust margins to prevent overflow
+    plt.savefig('step2_grid_analysis_results.png', dpi=150, bbox_inches='tight')
     plt.show()
     
-    print(f"\nComprehensive visualization saved as 'comprehensive_grid_analysis.png'")
+    print(f"\nStep 2 analysis results saved as 'step2_grid_analysis_results.png'")
 
 def create_palette_preview(palette, tile_size=30):
     """
@@ -187,7 +155,7 @@ def create_palette_preview(palette, tile_size=30):
     colors = list(palette.values())
     n_colors = len(colors)
     
-    # Arrange colors in a grid (4 columns max for compact display)
+    # Arrange colors in a grid
     cols = min(4, n_colors)
     rows = (n_colors + cols - 1) // cols
     
@@ -206,147 +174,97 @@ def create_palette_preview(palette, tile_size=30):
     
     return preview
 
-def create_color_category_image(original_image, grid_info, color_analysis):
+def create_color_classification_visualization(result):
     """
-    Create image showing color categories.
+    Create visualization showing color classification by filling cells completely.
     """
-    result_image = np.zeros_like(original_image)
+    processed_image = result['processed_image']
+    grid_info = result['grid_info']
+    color_analysis = result['color_analysis']
     
+    # Create completely new image showing just the color categories
+    h, w = processed_image.shape[:2]
+    classification_image = np.zeros((h, w, 3), dtype=np.uint8)
+    
+    # Fill each cell completely with its category color
     for (y1, y2, x1, x2), (dominant_color, category, category_color) in zip(grid_info, color_analysis):
-        result_image[y1:y2, x1:x2] = category_color
+        # Ensure coordinates are safe
+        y1, y2 = max(0, y1), min(h, y2)
+        x1, x2 = max(0, x1), min(w, x2)
+        
+        # Fill entire cell with category color
+        classification_image[y1:y2, x1:x2] = category_color
     
-    return result_image
+    return classification_image
 
-def analyze_algorithm_performance(results):
+def analyze_step2_performance(results):
     """
-    Analyze how the algorithm performs across different image types with dynamic palettes.
-    Enhanced analysis including palette effectiveness.
+    Analyze Step 2 specific performance: grid division and color classification.
     """
-    print(f"\nDynamic Palette Algorithm Performance Analysis:")
-    print("="*75)
+    print(f"\nStep 2 Performance Analysis:")
+    print("="*50)
     
-    # Create comparison table (enhanced with palette info)
-    print(f"{'Image':<12} {'Cells':<6} {'Large%':<7} {'Small%':<7} {'Palette':<8} {'Used':<6} {'Efficiency':<10} {'Assessment'}")
-    print("-" * 80)
-    
-    assessments = []
+    print(f"{'Image':<12} {'Cells':<6} {'Large%':<7} {'Small%':<7} {'Palette':<8} {'Categories':<11} {'Classification'}")
+    print("-" * 75)
     
     for result in results:
         stats = result['stats']
         name = result['name']
         palette_size = len(result['dynamic_palette'])
         
-        # Calculate metrics
+        # Calculate Step 2 specific metrics
         total_cells = stats['total_cells']
         large_pct = (stats['large_cells'] / total_cells) * 100
         small_pct = stats['subdivision_ratio'] * 100
-        used_colors = stats['unique_colors']
-        efficiency = used_colors / palette_size * 100
+        categories = stats['unique_colors']
         
-        # Assessment logic (updated for dynamic palette era)
+        # Step 2 assessment
         if small_pct > 70:
-            assessment = "Over-subdivided"
+            classification = "Over-subdivided"
         elif small_pct < 20:
-            assessment = "Under-subdivided"  
+            classification = "Under-subdivided"  
         elif 30 <= small_pct <= 60:
-            assessment = "Well-balanced"
+            classification = "Well-balanced"
         else:
-            assessment = "Good"
+            classification = "Good"
         
-        assessments.append(assessment)
-        
-        print(f"{name:<12} {total_cells:<6} {large_pct:<7.1f} {small_pct:<7.1f} {palette_size:<8} {used_colors:<6} {efficiency:<10.1f}% {assessment}")
+        print(f"{name:<12} {total_cells:<6} {large_pct:<7.1f} {small_pct:<7.1f} {palette_size:<8} {categories:<11} {classification}")
     
-    # Overall analysis (enhanced)
-    print(f"\nDetailed Analysis with Dynamic Palettes:")
-    print("-" * 50)
+    print(f"\nStep 2 Detailed Analysis:")
+    print("-" * 30)
     
-    for result, assessment in zip(results, assessments):
+    for result in results:
         name = result['name']
         stats = result['stats']
         palette = result['dynamic_palette']
         
-        print(f"\n{name.upper()}:")
+        print(f"\n{name.upper()} - Step 2 Results:")
+        print(f"  Grid Division: {stats['total_cells']} cells ({stats['large_cells']} large, {stats['subdivided_cells']} subdivided)")
+        print(f"  Color Analysis: {len(palette)} palette colors → {stats['unique_colors']} categories used")
+        print(f"  Classification Quality: {stats['unique_colors']/len(palette):.1%} palette utilization")
         
-        if name == 'landscape':
-            print("  Expected: Natural color variations, balanced subdivision for complex areas")
-            if stats['subdivision_ratio'] > 0.6:
-                print("  Issue: Possibly over-subdividing simple areas like sky")
-            else:
-                print("  Result: Good balance between detail and simplicity")
-            print(f"  Color improvement: Dynamic palette captures natural landscape tones")
-                
-        elif name == 'portrait':
-            print("  Expected: Skin tone preservation, hair/clothing detail subdivision")
-            if stats['unique_colors'] < 5:
-                print("  Issue: May not capture enough skin tone variation")
-            else:
-                print("  Result: Good color variety for portrait")
-            print(f"  Color improvement: Dynamic palette includes skin, hair, background tones")
-                
-        elif name == 'geometric':
-            print("  Expected: Large uniform areas, selective edge subdivision")
-            if stats['subdivision_ratio'] < 0.3:
-                print("  Issue: May not be detecting geometric edges properly")  
-            elif stats['subdivision_ratio'] > 0.5:
-                print("  Improvement: Reduced over-subdivision compared to previous version")
-            else:
-                print("  Result: Good balance for geometric patterns")
-            print(f"  Color improvement: Dynamic palette extracted from geometric color scheme")
+        # Show intensity/color analysis results
+        complexities = []
+        dominant_colors = []
+        for dominant_color, category, category_color in result['color_analysis']:
+            complexities.append(np.mean(dominant_color))
+            dominant_colors.append(dominant_color)
         
-        # Color usage analysis
-        color_efficiency = stats['unique_colors'] / len(palette)
-        print(f"  Color usage: {stats['unique_colors']}/{len(palette)} colors ({color_efficiency:.1%})")
-        print(f"  Palette efficiency: {'High' if color_efficiency > 0.6 else 'Moderate' if color_efficiency > 0.4 else 'Could be optimized'}")
+        if complexities:
+            print(f"  Intensity Analysis: Avg={np.mean(complexities):.1f}, Range={min(complexities):.0f}-{max(complexities):.0f}")
         
-        # Show most common colors
-        categories = [analysis[1] for analysis in result['color_analysis']]
-        category_counts = {}
-        for cat in categories:
-            category_counts[cat] = category_counts.get(cat, 0) + 1
-        
-        sorted_colors = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:3]
-        dominant_colors = ', '.join([f'{name.split("_")[0]}({count})' for name, count in sorted_colors])
-        print(f"  Dominant colors: {dominant_colors}")
-
-def print_improvement_summary():
-    """
-    Print summary of improvements made to the algorithm.
-    """
-    print(f"\n" + "="*75)
-    print("ALGORITHM IMPROVEMENTS SUMMARY")
-    print("="*75)
-    
-    print("\nGrid Analysis Improvements:")
-    print("  - Image type detection (geometric/portrait/natural)")
-    print("  - Adaptive complexity thresholds based on image type") 
-    print("  - Better uniform region detection")
-    print("  - Subdivision meaningfulness validation")
-    
-    print("\nColor Analysis Improvements:")
-    print("  - Dynamic color palette generation using K-means")
-    print("  - Image-specific color extraction (16 colors per image)")
-    print("  - Intelligent color naming based on RGB characteristics")
-    print("  - Perceptually-weighted color distance calculation")
-    
-    print("\nExpected Results:")
-    print("  - Geometric: Reduced subdivision (~30-40% vs previous 59%)")
-    print("  - Landscape: Better color representation with natural tones")  
-    print("  - Portrait: Maintained balance with skin/hair color accuracy")
-    
-    print("\nKey Benefits:")
-    print("  - More accurate color representation for each image")
-    print("  - Reduced over-subdivision in geometric patterns")
-    print("  - Better preservation of uniform areas")
-    print("  - Natural color palettes extracted from actual image content")
+        print(f"  Step 2 Status: COMPLETED - Ready for Step 3 tile mapping")
 
 if __name__ == "__main__":
     success = test_all_example_images()
     
     if success:
-        print_improvement_summary()
-        print(f"\nComprehensive testing with dynamic palettes completed!")
-        print("Check 'comprehensive_grid_analysis.png' for detailed visual results")
-        print("Key improvement: Landscape should now show much better color representation!")
+        print(f"\nStep 2 (Grid Analysis & Color Classification) testing completed!")
+        print("Results show:")
+        print("  • Grid division with adaptive subdivision")
+        print("  • Color intensity/value analysis for each cell") 
+        print("  • Color classification into categories")
+        print("  • Dynamic palette generation")
+        print("\nReady for Step 3: Tile Mapping!")
     else:
-        print(f"\nTesting failed!")
+        print(f"\nStep 2 testing failed!")
