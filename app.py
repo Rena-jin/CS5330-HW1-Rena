@@ -190,7 +190,7 @@ def create_interface():
                 grid_size = gr.Slider(
                     minimum=16,
                     maximum=64,
-                    value=24,  # Changed to smaller default for better quality
+                    value=16,  # Changed to smaller default for better quality
                     step=8,
                     label="Grid Size",
                     info="Smaller = more detail, Larger = more artistic"
