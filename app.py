@@ -302,9 +302,4 @@ def create_interface():
 
 if __name__ == "__main__":
     demo = create_interface()
-    demo.launch(
-        share=False,
-        server_port=7860,
-        show_error=True,
-        inbrowser=True
-    )
+    demo.launch()
