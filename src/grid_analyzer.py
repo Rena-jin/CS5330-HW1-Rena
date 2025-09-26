@@ -1,11 +1,18 @@
 import numpy as np
 from sklearn.cluster import KMeans
 import cv2
+import warnings
+
+# control K-means warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
+from sklearn.exceptions import ConvergenceWarning
+warnings.filterwarnings('ignore', category=ConvergenceWarning)
 
 class GridAnalyzer:
     """
     Improved grid analysis module for the mosaic generator.
     Better handles geometric patterns and uniform regions with improved color classification.
+    Fixed boundary handling for non-divisible grid sizes.
     """
     
     def __init__(self, base_grid_size=32):
@@ -19,7 +26,7 @@ class GridAnalyzer:
         
     def create_adaptive_grid(self, image, complexity_threshold=50):
         """
-        Create adaptive grid with improved geometric pattern handling.
+        Create adaptive grid with improved boundary handling for all grid sizes.
         
         Args:
             image (numpy.ndarray): Input image as RGB array
@@ -37,17 +44,21 @@ class GridAnalyzer:
         # Adjust threshold based on image type
         adjusted_threshold = self._get_adaptive_threshold(complexity_threshold, image_type)
         
-        # Calculate number of base grid cells
-        grid_h = h // self.base_grid_size
-        grid_w = w // self.base_grid_size
+        # Calculate number of grid cells, ensuring we cover the entire image
+        grid_h = int(np.ceil(h / self.base_grid_size))  # Use ceiling to ensure full coverage
+        grid_w = int(np.ceil(w / self.base_grid_size))
         
         for i in range(grid_h):
             for j in range(grid_w):
-                # Calculate cell boundaries
+                # Calculate cell boundaries with proper edge handling
                 y1 = i * self.base_grid_size
-                y2 = min((i + 1) * self.base_grid_size, h)
+                y2 = min((i + 1) * self.base_grid_size, h)  # Ensure we don't exceed image bounds
                 x1 = j * self.base_grid_size
                 x2 = min((j + 1) * self.base_grid_size, w)
+                
+                # Skip cells that would be too small (edge artifacts)
+                if (y2 - y1) < self.base_grid_size // 4 or (x2 - x1) < self.base_grid_size // 4:
+                    continue
                 
                 # Extract cell from image
                 cell = image[y1:y2, x1:x2]
@@ -62,13 +73,50 @@ class GridAnalyzer:
                 
                 if should_subdivide:
                     # Subdivide into 4 smaller cells
-                    subcells = self._subdivide_cell(y1, y2, x1, x2)
+                    subcells = self._subdivide_cell(y1, y2, x1, x2, h, w)
                     grid_info.extend(subcells)
                 else:
                     # Keep as single cell
                     grid_info.append((y1, y2, x1, x2))
         
         return grid_info
+    
+    def _subdivide_cell(self, y1, y2, x1, x2, img_h, img_w):
+        """
+        Subdivide a cell into 4 smaller subcells with boundary checking.
+        
+        Args:
+            y1, y2, x1, x2: Cell boundaries
+            img_h, img_w: Image dimensions for boundary checking
+        """
+        mid_x = (x1 + x2) // 2
+        mid_y = (y1 + y2) // 2
+        
+        subcells = []
+        
+        # Create 4 subcells with boundary validation
+        potential_subcells = [
+            (y1, mid_y, x1, mid_x),    # Top-left
+            (y1, mid_y, mid_x, x2),    # Top-right
+            (mid_y, y2, x1, mid_x),    # Bottom-left
+            (mid_y, y2, mid_x, x2)     # Bottom-right
+        ]
+        
+        # Only add subcells that are within bounds and have reasonable size
+        min_size = max(4, self.base_grid_size // 8)  # Minimum subcell size
+        
+        for sub_y1, sub_y2, sub_x1, sub_x2 in potential_subcells:
+            # Ensure subcell is within image bounds
+            sub_y1 = max(0, min(sub_y1, img_h))
+            sub_y2 = max(0, min(sub_y2, img_h))
+            sub_x1 = max(0, min(sub_x1, img_w))
+            sub_x2 = max(0, min(sub_x2, img_w))
+            
+            # Check if subcell has reasonable dimensions
+            if (sub_y2 - sub_y1) >= min_size and (sub_x2 - sub_x1) >= min_size:
+                subcells.append((sub_y1, sub_y2, sub_x1, sub_x2))
+        
+        return subcells
     
     def _detect_image_type(self, image):
         """
@@ -370,20 +418,6 @@ class GridAnalyzer:
         
         # If maximum difference between quadrants is significant, subdivision helps
         return max_diff > 25  # Adjustable threshold
-    
-    def _subdivide_cell(self, y1, y2, x1, x2):
-        """
-        Subdivide a cell into 4 smaller subcells.
-        """
-        mid_x = (x1 + x2) // 2
-        mid_y = (y1 + y2) // 2
-        
-        return [
-            (y1, mid_y, x1, mid_x),    # Top-left
-            (y1, mid_y, mid_x, x2),    # Top-right
-            (mid_y, y2, x1, mid_x),    # Bottom-left
-            (mid_y, y2, mid_x, x2)     # Bottom-right
-        ]
     
     def analyze_cell_color(self, cell):
         """

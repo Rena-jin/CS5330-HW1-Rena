@@ -12,7 +12,7 @@ from tile_mapper import TileMapper
 
 class MosaicGeneratorApp:
     """
-    Simple mosaic generator app with clean interface.
+    Enhanced mosaic generator app with three artistic tile styles.
     """
     
     def __init__(self):
@@ -21,11 +21,14 @@ class MosaicGeneratorApp:
         self.analyzer = GridAnalyzer(base_grid_size=32)
         self.mapper = TileMapper()
     
-    def generate_mosaic(self, image, grid_size, use_quantization, complexity_threshold):
+    def generate_mosaic(self, image, grid_size, use_quantization, complexity_threshold, tile_style):
         """
-        Generate mosaic and return only the mosaic result (no concatenation).
+        Generate mosaic with selected tile style.
         """
         try:
+            if image is None:
+                return None
+                
             # Step 1: Image Preprocessing
             processed_image = self.preprocessor.preprocess_image(
                 image, 
@@ -40,34 +43,58 @@ class MosaicGeneratorApp:
                 complexity_threshold=complexity_threshold
             )
             
-            # Step 3: Tile Mapping
-            mosaic = self.mapper.generate_mosaic(
-                processed_image, 
-                grid_info, 
-                color_analysis, 
-                dynamic_palette
-            )
+            # Step 3: Tile Mapping with selected style
+            tile_style_map = {
+                "Classic Solid": "solid",
+                "Smart Geometric": "pattern",
+                "Oil Painting": "oil_painting"
+            }
             
-            # Return just the mosaic (no white borders, no concatenation)
+            selected_style = tile_style_map.get(tile_style, "solid")
+            
+            # Use the method that exists in your current tile_mapper
+            if hasattr(self.mapper, 'generate_mosaic_with_bounds'):
+                image_bounds = self.preprocessor.get_image_bounds()
+                mosaic = self.mapper.generate_mosaic_with_bounds(
+                    processed_image, 
+                    grid_info, 
+                    color_analysis, 
+                    dynamic_palette,
+                    tile_style=selected_style,
+                    image_bounds=image_bounds
+                )
+            else:
+                # Fallback to basic method
+                mosaic = self.mapper.generate_mosaic(
+                    processed_image, 
+                    grid_info, 
+                    color_analysis, 
+                    dynamic_palette,
+                    tile_style=selected_style
+                )
+            
             return mosaic
             
         except Exception as e:
-            # Return error message
-            error_image = np.full((512, 512, 3), [255, 0, 0], dtype=np.uint8)  # Red error image
+            print(f"Error generating mosaic: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return error image
+            error_image = np.full((512, 512, 3), [255, 50, 50], dtype=np.uint8)
             return error_image
 
 def create_interface():
     """
-    Create simple, clean interface with large image display areas.
+    Create clean interface with three artistic tile style selection.
     """
     app = MosaicGeneratorApp()
     
     with gr.Blocks(
-        title="Interactive Image Mosaic Generator",
+        title="Enhanced Interactive Image Mosaic Generator",
         theme=gr.themes.Soft(),
         css="""
         .gradio-container {
-            max-width: 1200px !important;
+            max-width: 1300px !important;
             margin: 0 auto !important;
         }
         .image-container {
@@ -80,7 +107,6 @@ def create_interface():
             height: auto !important;
             object-fit: contain !important;
         }
-        /* Fixed upload area styling */
         .upload-container {
             min-height: 400px !important;
             max-height: 400px !important;
@@ -98,60 +124,34 @@ def create_interface():
             border-color: #6366f1 !important;
             background: linear-gradient(to bottom, #f0f9ff, #e0f2fe) !important;
         }
-        .upload-container .wrap {
-            height: 100% !important;
-            width: 100% !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 15px 15px 70px 15px !important;
-            box-sizing: border-box !important;
-        }
-        .upload-container img {
-            max-width: 90% !important;
-            max-height: 85% !important;
-            object-fit: contain !important;
-            border-radius: 8px !important;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-        }
-        /* Position icons outside the main frame */
         .upload-container .source-selection {
-            position: absolute !important;
-            bottom: 0px !important;
-            left: 0px !important;
-            right: 0px !important;
-            height: 60px !important;
-            background: rgba(255, 255, 255, 0.9) !important;
-            border-top: 1px solid #e5e7eb !important;
-            border-radius: 0 0 12px 12px !important;
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
-            gap: 20px !important;
-            padding: 10px !important;
+            display: none !important;
         }
-        /* Ensure column layout stays fixed */
-        .gradio-column {
-            flex-direction: column !important;
+        .tile-style-group {
+            border: 2px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            padding: 15px !important;
+            margin: 10px 0 !important;
+            background: linear-gradient(to bottom, #f8fafc, #f1f5f9) !important;
         }
         """
     ) as interface:
         
-        # Simple Header
+        # Clean Header
         gr.HTML("""
-        <div style="text-align: center; padding: 20px;">
-            <h1>Interactive Image Mosaic Generator</h1>
-            <h3>CS5330 Computer Vision - Homework 1</h3>
+        <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; margin-bottom: 20px;">
+            <h1 style="margin: 0; font-size: 2.5em;">Enhanced Interactive Image Mosaic Generator</h1>
+            <h3 style="margin: 10px 0; opacity: 0.9;">CS5330 Computer Vision - Three Artistic Tile Styles</h3>
+            <p style="margin: 5px 0; opacity: 0.8;"><strong>Features:</strong> Classic Solid • Smart Geometric • Oil Painting</p>
         </div>
         """)
         
         # Main Layout
         with gr.Row():
-            # Left Column - Controls (Narrow)
-            with gr.Column(scale=1, min_width=250):
+            # Left Column - Controls
+            with gr.Column(scale=1, min_width=320):
                 
-                # Large Upload Area
+                # Upload Area
                 gr.HTML("<h3>Upload Image</h3>")
                 image_input = gr.Image(
                     type="numpy",
@@ -164,43 +164,66 @@ def create_interface():
                     elem_classes=["upload-container"]
                 )
                 
-                # Manual Settings
-                gr.HTML("<h3>Manual Settings</h3>")
+                # Artistic Style Selection
+                gr.HTML("<h3>Artistic Tile Styles</h3>")
+                with gr.Group(elem_classes=["tile-style-group"]):
+                    tile_style = gr.Radio(
+                        choices=["Classic Solid", "Smart Geometric", "Oil Painting"],
+                        value="Classic Solid",
+                        label="Choose Your Artistic Style",
+                        info="Each style uses different computer vision techniques"
+                    )
+                
+                # Style Descriptions
+                gr.HTML("""
+                <div style="font-size: 0.85em; color: #555; line-height: 1.5; background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <strong>Style Guide:</strong><br>
+                    <strong>• Classic Solid:</strong> Traditional mosaic blocks with solid colors<br>
+                    <strong>• Smart Geometric:</strong> Gradient-driven patterns using Sobel edge detection<br>
+                    <strong>• Oil Painting:</strong> Textured brush strokes with artistic color variations
+                </div>
+                """)
+                
+                # Technical Settings
+                gr.HTML("<h3>Technical Parameters</h3>")
                 
                 grid_size = gr.Slider(
                     minimum=16,
                     maximum=64,
-                    value=32,
+                    value=24,  # Changed to smaller default for better quality
                     step=8,
-                    label="Grid Size"
+                    label="Grid Size",
+                    info="Smaller = more detail, Larger = more artistic"
                 )
                 
                 complexity_threshold = gr.Slider(
                     minimum=20,
                     maximum=80,
-                    value=50,
+                    value=50,  # Back to 50 as requested
                     step=5,
-                    label="Complexity Threshold"
+                    label="Complexity Threshold",
+                    info="Controls subdivision in complex areas"
                 )
                 
                 use_quantization = gr.Checkbox(
                     label="Color Quantization",
-                    value=True
+                    value=True,
+                    info="Reduce colors for enhanced artistic effect"
                 )
                 
                 # Generate Button
                 generate_btn = gr.Button(
-                    "Generate Mosaic",
+                    "Generate Artistic Mosaic",
                     variant="primary",
                     size="lg"
                 )
             
-            # Right Column - Large Display Area
+            # Right Column - Results
             with gr.Column(scale=2, min_width=600):
                 
-                gr.HTML("<h3>Mosaic Result</h3>")
+                gr.HTML("<h3>Your Artistic Mosaic</h3>")
                 
-                # Large Mosaic Display Area
+                # Main Mosaic Display
                 mosaic_output = gr.Image(
                     label="",
                     height=500,
@@ -209,51 +232,69 @@ def create_interface():
                     show_share_button=False
                 )
         
-        # Instructions Section (ADDED ONLY THIS)
+        # Enhanced Instructions
         gr.HTML("""
-        <div style="margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
-            <h3>How to Upload Images:</h3>
-            <ul>
-                <li><strong>Click the upload area</strong> above and select an image file</li>
-                <li><strong>Drag and drop</strong> an image directly into the upload box</li>
-                <li><strong>Use example images</strong> from the examples section below</li>
-                <li><strong>Supported formats:</strong> JPG, PNG, JPEG</li>
-                <li><strong>Best results:</strong> Images with clear colors and good contrast</li>
-            </ul>
-            <h3>How to Download:</h3>
-            <ul>
-                <li><strong>After generating a mosaic</strong>, look for the download button in the top-right corner of the result image</li>
-                <li><strong>Click the download icon</strong> to save your mosaic</li>
-            </ul>
+        <div style="margin-top: 30px; padding: 25px; background: linear-gradient(to right, #f8f9fa, #e9ecef); border-radius: 15px; border: 1px solid #dee2e6;">
+            <h3 style="color: #495057; margin-bottom: 20px;">How to Create Artistic Mosaics</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 20px;">
+                <div style="background: white; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef;">
+                    <h4 style="color: #6f42c1; margin-bottom: 15px;">Quick Start Guide</h4>
+                    <ol style="margin: 0; padding-left: 20px; line-height: 1.6;">
+                        <li><strong>Upload</strong> your favorite image</li>
+                        <li><strong>Choose</strong> an artistic tile style</li>
+                        <li><strong>Adjust</strong> parameters to taste</li>
+                        <li><strong>Generate</strong> your unique mosaic</li>
+                        <li><strong>Download</strong> and share your art!</li>
+                    </ol>
+                </div>
+                
+                <div style="background: white; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef;">
+                    <h4 style="color: #e83e8c; margin-bottom: 15px;">Artistic Features</h4>
+                    <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+                        <li><strong>Three unique styles</strong> with distinct visual effects</li>
+                        <li><strong>Smart adaptation</strong> based on image content</li>
+                        <li><strong>Advanced algorithms</strong> using computer vision techniques</li>
+                        <li><strong>Professional quality</strong> downloadable results</li>
+                        <li><strong>Boundary detection</strong> for clean image edges</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; border-left: 4px solid #0066cc;">
+                <strong>Note:</strong>
+                <span style="margin-left: 10px;">Upload your own images or try the examples below to create unique artistic mosaics with three different visual styles.</span>
+            </div>
         </div>
         """)
         
-        # Examples Section (Full Width)
-        gr.HTML("<h3>Examples</h3>")
+        # Examples Section
+        gr.HTML("<h3>Try These Example Images</h3>")
         
-        # Create examples from your test images
+        # Create examples with better settings for quality
         example_images = []
         if os.path.exists('examples'):
             for file in sorted(os.listdir('examples')):
                 if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                     example_images.append([
                         os.path.join('examples', file),
-                        32,   # grid size
-                        True, # quantization
-                        50    # threshold
+                        16,   # Smaller grid for better detail
+                        50,   # Back to 50 threshold as requested
+                        True, # Color Quantization enabled
+                        "Classic Solid"  # Default style
                     ])
         
         if example_images:
             gr.Examples(
                 examples=example_images,
-                inputs=[image_input, grid_size, use_quantization, complexity_threshold],
-                label=""
+                inputs=[image_input, grid_size, complexity_threshold, use_quantization, tile_style],
+                label="Click any example to load with optimized settings"
             )
         
         # Bind Generate Function
         generate_btn.click(
             fn=app.generate_mosaic,
-            inputs=[image_input, grid_size, use_quantization, complexity_threshold],
+            inputs=[image_input, grid_size, use_quantization, complexity_threshold, tile_style],
             outputs=[mosaic_output]
         )
     

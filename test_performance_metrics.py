@@ -1,208 +1,221 @@
 import sys
-sys.path.append('src')
-
+import os
 import numpy as np
 import matplotlib.pyplot as plt
-import os
+
+# Add src directory to path
+sys.path.append('src')
 
 from image_processor import ImagePreprocessor
 from grid_analyzer import GridAnalyzer
 from tile_mapper import TileMapper
 from performance_metrics import PerformanceMetrics
 
-def test_performance_metrics():
+def test_three_tile_styles():
     """
-    Test Step 5: Performance Metrics implementation.
+    Test and compare all three tile styles for assignment demonstration.
     """
-    print("Testing Step 5: Performance Metrics...")
-    print("="*50)
+    print("="*70)
+    print("MOSAIC STYLE PERFORMANCE COMPARISON TEST")
+    print("="*70)
     
-    # Initialize all modules
+    # Initialize components
     preprocessor = ImagePreprocessor(target_size=(512, 512))
     analyzer = GridAnalyzer(base_grid_size=32)
     mapper = TileMapper()
     metrics = PerformanceMetrics()
     
-    # Get test images
-    image_files = [f for f in os.listdir('examples') if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-    image_files.sort()
+    # Test settings
+    test_images = []
+    if os.path.exists('examples'):
+        for file in sorted(os.listdir('examples'))[:3]:  # Test first 3 images
+            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                test_images.append(os.path.join('examples', file))
     
-    results = []
+    if not test_images:
+        print("No test images found in 'examples' folder!")
+        return
     
-    # Test all three images with different parameters
-    test_configs = [
-        {"grid_size": 32, "threshold": 50, "quantization": True},
-        {"grid_size": 24, "threshold": 60, "quantization": True},
-        {"grid_size": 48, "threshold": 40, "quantization": False}
+    # Test parameters
+    grid_size = 24
+    complexity_threshold = 40
+    use_quantization = True
+    
+    # Three tile styles to test
+    tile_styles = [
+        ("Classic Solid", "solid"),
+        ("Smart Geometric", "pattern"), 
+        ("Oil Painting", "oil_painting")
     ]
     
-    for image_file in image_files:
-        image_path = os.path.join('examples', image_file)
-        image_name = os.path.basename(image_path).split('.')[0]
+    overall_results = {}
+    
+    for img_path in test_images:
+        print(f"\n{'='*50}")
+        print(f"Testing Image: {os.path.basename(img_path)}")
+        print(f"{'='*50}")
         
-        print(f"\nTesting {image_name}...")
+        # Step 1: Preprocess image
+        processed_image = preprocessor.preprocess_image(
+            img_path, 
+            apply_quantization=use_quantization, 
+            n_colors=8
+        )
         
-        image_results = []
+        # Step 2: Analyze grid (same for all styles)
+        analyzer.base_grid_size = grid_size
+        grid_info, color_analysis, dynamic_palette = analyzer.analyze_image_grid(
+            processed_image, 
+            complexity_threshold=complexity_threshold
+        )
         
-        for i, config in enumerate(test_configs):
-            config_name = f"Config {i+1}"
-            print(f"  {config_name}: Grid={config['grid_size']}, Threshold={config['threshold']}, Quantization={config['quantization']}")
+        print(f"Grid Analysis Results:")
+        print(f"  Total cells: {len(grid_info)}")
+        print(f"  Palette colors: {len(dynamic_palette)}")
+        
+        image_results = {}
+        
+        # Step 3: Test each tile style
+        for style_name, style_code in tile_styles:
+            print(f"\n--- Testing {style_name} ---")
             
-            try:
-                # Step 1: Preprocess
-                processed_image = preprocessor.preprocess_image(
-                    image_path, 
-                    apply_quantization=config['quantization'], 
-                    n_colors=8
+            # Generate mosaic
+            if hasattr(mapper, 'generate_mosaic_with_bounds'):
+                image_bounds = preprocessor.get_image_bounds()
+                mosaic = mapper.generate_mosaic_with_bounds(
+                    processed_image, grid_info, color_analysis, 
+                    dynamic_palette, tile_style=style_code, image_bounds=image_bounds
                 )
-                
-                # Step 2: Grid Analysis
-                analyzer.base_grid_size = config['grid_size']
-                grid_info, color_analysis, dynamic_palette = analyzer.analyze_image_grid(
-                    processed_image, 
-                    complexity_threshold=config['threshold']
-                )
-                
-                # Step 3: Tile Mapping
+            else:
                 mosaic = mapper.generate_mosaic(
-                    processed_image, 
-                    grid_info, 
-                    color_analysis, 
-                    dynamic_palette
+                    processed_image, grid_info, color_analysis, 
+                    dynamic_palette, tile_style=style_code
                 )
-                
-                # Step 5: Performance Evaluation
-                performance_results = metrics.evaluate_comprehensive_quality(processed_image, mosaic)
-                quality_assessment = metrics.get_quality_assessment(performance_results)
-                
-                # Store results
-                result = {
-                    'config_name': config_name,
-                    'config': config,
-                    'original': processed_image,
-                    'mosaic': mosaic,
-                    'metrics': performance_results,
-                    'assessment': quality_assessment
-                }
-                image_results.append(result)
-                
-                # Print metrics
-                print(f"    MSE: {performance_results['mse']:.2f}")
-                print(f"    SSIM: {performance_results['ssim']:.4f}")
-                print(f"    Color Fidelity: {performance_results['color_fidelity']:.4f}")
-                print(f"    Overall Score: {performance_results['overall_score']:.1f}/100")
-                print(f"    Assessment: {quality_assessment.split('(')[0].strip()}")
-                
-            except Exception as e:
-                print(f"    Error: {e}")
-                continue
-        
-        results.append({
-            'image_name': image_name,
-            'image_path': image_path,
-            'configs': image_results
-        })
-    
-    if results:
-        create_performance_visualization(results)
-        analyze_metric_effectiveness(results)
-    
-    return results
-
-def create_performance_visualization(results):
-    """
-    Create comprehensive visualization of performance metrics across different configurations.
-    """
-    num_images = len(results)
-    num_configs = len(results[0]['configs']) if results else 0
-    
-    fig, axes = plt.subplots(num_images, num_configs + 1, figsize=(5*(num_configs + 1), 5*num_images))
-    
-    if num_images == 1:
-        axes = axes.reshape(1, -1)
-    
-    for i, image_result in enumerate(results):
-        image_name = image_result['image_name']
-        
-        # Show original image
-        if image_result['configs']:
-            original = image_result['configs'][0]['original']
-            axes[i, 0].imshow(original)
-            axes[i, 0].set_title(f"{image_name.title()}\nOriginal")
-            axes[i, 0].axis('off')
-        
-        # Show mosaics with different configurations
-        for j, config_result in enumerate(image_result['configs']):
-            col = j + 1
-            mosaic = config_result['mosaic']
-            metrics = config_result['metrics']
-            config = config_result['config']
             
-            axes[i, col].imshow(mosaic)
-            title = (f"Grid: {config['grid_size']}\n"
-                    f"SSIM: {metrics['ssim']:.3f}\n"
-                    f"Score: {metrics['overall_score']:.0f}/100")
-            axes[i, col].set_title(title)
-            axes[i, col].axis('off')
+            # Evaluate performance
+            performance_results = metrics.evaluate_comprehensive_quality(processed_image, mosaic)
+            
+            # Print results
+            print(f"MSE: {performance_results['mse']:.2f}")
+            print(f"SSIM: {performance_results['ssim']:.4f}")
+            print(f"Color Fidelity: {performance_results['color_fidelity']:.3f}")
+            print(f"Edge Preservation: {performance_results['edge_preservation']:.3f}")
+            print(f"Overall Score: {performance_results['overall_score']:.1f}/100")
+            
+            # Get quality assessment
+            assessment = metrics.get_quality_assessment(performance_results)
+            print(f"Assessment: {assessment.split('(')[0].strip()}")
+            
+            image_results[style_name] = performance_results
+        
+        overall_results[os.path.basename(img_path)] = image_results
+        
+        # Create visual comparison for this image
+        create_visual_comparison(
+            processed_image, 
+            grid_info, 
+            color_analysis, 
+            dynamic_palette, 
+            mapper, 
+            preprocessor,
+            os.path.basename(img_path)
+        )
+    
+    # Create summary report
+    create_summary_report(overall_results)
+    
+    print(f"\n{'='*70}")
+    print("PERFORMANCE COMPARISON COMPLETE")
+    print("Check generated images and summary report!")
+    print(f"{'='*70}")
+
+def create_visual_comparison(processed_image, grid_info, color_analysis, 
+                           dynamic_palette, mapper, preprocessor, image_name):
+    """
+    Create side-by-side visual comparison of all three styles.
+    """
+    tile_styles = [
+        ("Original", None),
+        ("Classic Solid", "solid"),
+        ("Smart Geometric", "pattern"), 
+        ("Oil Painting", "oil_painting")
+    ]
+    
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+    fig.suptitle(f'Tile Style Comparison - {image_name}', fontsize=14, fontweight='bold')
+    
+    for i, (style_name, style_code) in enumerate(tile_styles):
+        if style_code is None:
+            # Show original
+            axes[i].imshow(processed_image)
+        else:
+            # Generate mosaic
+            if hasattr(mapper, 'generate_mosaic_with_bounds'):
+                image_bounds = preprocessor.get_image_bounds()
+                mosaic = mapper.generate_mosaic_with_bounds(
+                    processed_image, grid_info, color_analysis, 
+                    dynamic_palette, tile_style=style_code, image_bounds=image_bounds
+                )
+            else:
+                mosaic = mapper.generate_mosaic(
+                    processed_image, grid_info, color_analysis, 
+                    dynamic_palette, tile_style=style_code
+                )
+            axes[i].imshow(mosaic)
+        
+        axes[i].set_title(style_name, fontweight='bold')
+        axes[i].axis('off')
     
     plt.tight_layout()
-    plt.savefig('performance_metrics_comparison.png', dpi=150, bbox_inches='tight')
+    plt.savefig(f'comparison_{image_name.split(".")[0]}.png', dpi=150, bbox_inches='tight')
     plt.show()
-    
-    print(f"\nPerformance comparison saved as 'performance_metrics_comparison.png'")
 
-def analyze_metric_effectiveness(results):
+def create_summary_report(results):
     """
-    Analyze the effectiveness of different performance metrics.
+    Create a summary report comparing all styles across all images.
     """
-    print(f"\nPerformance Metrics Effectiveness Analysis:")
-    print("="*55)
+    print(f"\n{'='*70}")
+    print("SUMMARY PERFORMANCE REPORT")
+    print(f"{'='*70}")
     
-    # Collect all metric values for statistical analysis
-    all_mse = []
-    all_ssim = []
-    all_color = []
-    all_overall = []
+    # Calculate average scores for each style
+    style_averages = {}
     
-    for image_result in results:
-        for config_result in image_result['configs']:
-            metrics = config_result['metrics']
-            all_mse.append(metrics['mse'])
-            all_ssim.append(metrics['ssim'])
-            all_color.append(metrics['color_fidelity'])
-            all_overall.append(metrics['overall_score'])
+    for image_name, image_results in results.items():
+        for style_name, metrics in image_results.items():
+            if style_name not in style_averages:
+                style_averages[style_name] = {
+                    'mse': [], 'ssim': [], 'color_fidelity': [], 
+                    'edge_preservation': [], 'overall_score': []
+                }
+            
+            style_averages[style_name]['mse'].append(metrics['mse'])
+            style_averages[style_name]['ssim'].append(metrics['ssim'])
+            style_averages[style_name]['color_fidelity'].append(metrics['color_fidelity'])
+            style_averages[style_name]['edge_preservation'].append(metrics['edge_preservation'])
+            style_averages[style_name]['overall_score'].append(metrics['overall_score'])
     
-    if all_mse:
-        print(f"\nMetric Ranges Across All Tests:")
-        print(f"MSE: {min(all_mse):.1f} - {max(all_mse):.1f} (avg: {np.mean(all_mse):.1f})")
-        print(f"SSIM: {min(all_ssim):.3f} - {max(all_ssim):.3f} (avg: {np.mean(all_ssim):.3f})")
-        print(f"Color Fidelity: {min(all_color):.3f} - {max(all_color):.3f} (avg: {np.mean(all_color):.3f})")
-        print(f"Overall Score: {min(all_overall):.1f} - {max(all_overall):.1f} (avg: {np.mean(all_overall):.1f})")
+    # Print average results
+    print(f"\nAVERAGE PERFORMANCE ACROSS ALL TEST IMAGES:")
+    print(f"{'-'*70}")
+    print(f"{'Style':<18} {'MSE':<8} {'SSIM':<8} {'Color':<8} {'Edge':<8} {'Overall':<8}")
+    print(f"{'-'*70}")
     
-    print(f"\nStep 5 Implementation Status:")
-    print("="*35)
-    print("Required Metrics:")
-    print("  ✓ Mean Squared Error (MSE) - Implemented")
-    print("  ✓ Structural Similarity Index (SSIM) - Implemented")
-    print("Additional Metrics:")
-    print("  ✓ Color Fidelity (Histogram Comparison)")
-    print("  ✓ Perceptual Similarity (LAB Color Space)")
-    print("  ✓ Edge Preservation (Canny Edge Detection)")
-    print("  ✓ Comprehensive Quality Score (Weighted Combination)")
+    for style_name, metrics in style_averages.items():
+        avg_mse = np.mean(metrics['mse'])
+        avg_ssim = np.mean(metrics['ssim'])
+        avg_color = np.mean(metrics['color_fidelity'])
+        avg_edge = np.mean(metrics['edge_preservation'])
+        avg_overall = np.mean(metrics['overall_score'])
+        
+        print(f"{style_name:<18} {avg_mse:<8.1f} {avg_ssim:<8.3f} {avg_color:<8.3f} {avg_edge:<8.3f} {avg_overall:<8.1f}")
     
-    print(f"\nMetric Interpretation:")
-    print("• MSE: Lower values indicate better pixel-level accuracy")
-    print("• SSIM: Higher values indicate better structural preservation")
-    print("• Color Fidelity: Higher values indicate better color preservation")
-    print("• Overall Score: Weighted combination (0-100, higher is better)")
+    # Best performing style
+    best_style = max(style_averages.keys(), 
+                    key=lambda style: np.mean(style_averages[style]['overall_score']))
+    
+    print(f"\nBEST PERFORMING STYLE: {best_style}")
+    print(f"Average Overall Score: {np.mean(style_averages[best_style]['overall_score']):.1f}/100")
 
 if __name__ == "__main__":
-    results = test_performance_metrics()
-    
-    if results:
-        print(f"\nStep 5 (Performance Metrics) testing completed successfully!")
-        print("✓ MSE and SSIM metrics implemented as required")
-        print("✓ Additional metrics provide comprehensive evaluation")
-        print("✓ Ready for final integration and deployment")
-    else:
-        print(f"\nPerformance metrics testing failed!")
+    test_three_tile_styles()
